@@ -1,0 +1,72 @@
+// PostgreSQL Prisma schema matching required tables
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model projects {
+  id          String   @id @default(cuid())
+  title       String
+  prompt      String
+  target_sec  Int      @default(240)
+  style_pack  String   @default("default")
+  status      String   @default("new")
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  scenes      scenes[]
+  renders     renders[]
+}
+
+model scenes {
+  id         String  @id @default(cuid())
+  project_id String
+  index      Int
+  title      String
+  mood       String
+  target_ms  Int
+  shots      shots[]
+  dialogue   dialogue_lines[]
+  project    projects @relation(fields: [project_id], references: [id], onDelete: Cascade)
+}
+
+model shots {
+  id                 String @id @default(cuid())
+  scene_id           String
+  index              Int
+  duration_ms        Int
+  camera             String
+  background_prompt  String
+  caption            String
+  scene              scenes @relation(fields: [scene_id], references: [id], onDelete: Cascade)
+}
+
+model dialogue_lines {
+  id         String @id @default(cuid())
+  scene_id   String
+  idx        Int
+  speaker    String
+  text       String
+  est_ms     Int
+  start_ms   Int
+  end_ms     Int
+  tts_voice  String
+  scene      scenes @relation(fields: [scene_id], references: [id], onDelete: Cascade)
+}
+
+model renders {
+  id          String   @id @default(cuid())
+  project_id  String
+  url         String?
+  fps         Int
+  width       Int
+  height      Int
+  runtime_ms  Int
+  created_at  DateTime @default(now())
+  project     projects @relation(fields: [project_id], references: [id], onDelete: Cascade)
+}
+
+
