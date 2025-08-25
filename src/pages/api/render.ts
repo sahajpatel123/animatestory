@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client'
 import { renderQueue } from '@/../worker/renderWorker'
 import path from 'node:path'
 import fs from 'fs-extra'
-import { uploadFile } from '@/../../server/supaUpload'
+import { uploadFileGCS } from '@/../../server/gcsUpload'
 
 const prisma = new PrismaClient()
 
@@ -26,24 +26,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const sceneUrls: string[] = []
   for (const localScene of sceneMp4s) {
     const base = path.basename(localScene)
-    const key = `${projectId}/scenes/${base}`
-    const url = await uploadFile('renders', key, localScene, 31536000)
+    const key = `renders/${projectId}/scenes/${base}`
+    const url = await uploadFileGCS(key, localScene, 3600)
     sceneUrls.push(url)
   }
 
   // Upload final MP4
-  const finalUrl = await uploadFile('renders', `${projectId}/final.mp4`, done.final, 31536000)
+  const finalUrl = await uploadFileGCS(`renders/${projectId}/final.mp4`, done.final, 3600)
 
   // HLS: upload all files in outDir matching .m3u8 and .ts
   const files = await fs.readdir(workDir)
   let hlsUrl: string | null = null
   for (const f of files) {
     if (f.endsWith('.m3u8')) {
-      const url = await uploadFile('hls', `${projectId}/${f}`, path.join(workDir, f), 600)
-      hlsUrl = url
+      const url = await uploadFileGCS(`hls/${projectId}/${f}`, path.join(workDir, f), 3600)
+      hlsUrl = process.env.HLS_PUBLIC_BASE ? `${process.env.HLS_PUBLIC_BASE}${encodeURIComponent(projectId)}%2F${encodeURIComponent(f)}?alt=media` : url
     }
     if (f.endsWith('.ts')) {
-      await uploadFile('hls', `${projectId}/${f}`, path.join(workDir, f), 31536000)
+      await uploadFileGCS(`hls/${projectId}/${f}`, path.join(workDir, f), 3600)
     }
   }
 

@@ -15,6 +15,7 @@
   "dependencies": {
     "@bull-board/api": "^5.23.0",
     "@bull-board/express": "^5.23.0",
+    "@google-cloud/storage": "^7.17.0",
     "@prisma/client": "^5.18.0",
     "@supabase/supabase-js": "^2.45.4",
     "aws-sdk": "^2.1684.0",
