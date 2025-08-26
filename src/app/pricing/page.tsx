@@ -1,6 +1,7 @@
 "use client"
 import { useState } from 'react'
 import Reveal from '@/components/Reveal'
+import type { Plan } from '@/types/pricing'
 
 export default function PricingPage() {
   const tiers = [
@@ -18,12 +19,13 @@ export default function PricingPage() {
       highlight: true,
     },
     {
-      name: 'Studio',
+      name: 'Pro',
       price: 49,
-      features: ['4K ready', 'Team collaboration', 'Custom style packs', 'API access', 'Faster queue'],
-      cta: 'Go Studio',
+      features: ['4K @ 30fps', 'No watermark', 'Unlimited style packs', 'Studio voices'],
+      cta: 'Go Pro',
+      highlight: true,
     },
-  ] as const
+  ] satisfies readonly Plan[]
 
   const [annual, setAnnual] = useState(true)
   const priceLabel = (p: number) => {
@@ -46,10 +48,10 @@ export default function PricingPage() {
       </Reveal>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {tiers.map((t, i) => (
+        {tiers.map((t: Plan, i: number) => (
           <Reveal key={t.name} delay={i * 80}>
             <div className={`card rounded-xl border bg-white p-7 relative ${t.highlight ? 'border-black shadow-[0_12px_28px_rgba(0,0,0,.14)]' : 'border-black/20'}`}>
-              {t.highlight && (
+              {!!t.highlight && (
                 <div className="absolute top-4 right-4">
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-black/20 bg-black text-white text-xs leading-none shadow-sm">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 17.3l-5.4 3.2 1.5-6.1-4.7-4 6.2-.5L12 4l2.4 5.9 6.2.5-4.7 4 1.5 6.1z"/></svg>

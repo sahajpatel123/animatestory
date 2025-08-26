@@ -18,33 +18,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   )
 
   // Produce placeholder dialogue: 1-3 lines per scene, <=16 words each
-  const updates = [] as Array<Promise<any>>
-  for (let si = 0; si < scenes.length; si++) {
-    const s = scenes[si]
-    const shots = shotsByScene[si]
+  await prisma.$transaction(async (tx) => {
+    for (let si = 0; si < scenes.length; si++) {
+      const s = scenes[si]
+      const shots = shotsByScene[si]
 
-    const numLines = 1 + (si % 3)
-    for (let li = 0; li < numLines && li < shots.length; li++) {
-      const speaker = si % 2 === 0 ? 'Alex' : 'Rin'
-      // short line compliant with word limits
-      const text = `We move forward, ${s.title.toLowerCase()} awaits.`
-      const caption = wrapCaption(text, 42).slice(0, 2).join('\n')
-      updates.push(prisma.dialogue_lines.create({ data: {
-        scene_id: s.id,
-        idx: li,
-        speaker,
-        text,
-        est_ms: Math.min(shots[li]?.duration_ms ?? 4000, 6000),
-        start_ms: 0,
-        end_ms: 0,
-        tts_voice: speaker === 'Alex' ? 'en_male_1' : 'en_female_1',
-      } }))
-      // store caption onto shot
-      updates.push(prisma.shots.update({ where: { id: shots[li].id }, data: { caption } }))
+      const numLines = 1 + (si % 3)
+      for (let li = 0; li < numLines && li < shots.length; li++) {
+        const speaker = si % 2 === 0 ? 'Alex' : 'Rin'
+        const text = `We move forward, ${s.title.toLowerCase()} awaits.`
+        const caption = wrapCaption(text, 42).slice(0, 2).join('\n')
+        await tx.dialogue_lines.create({ data: {
+          scene_id: s.id,
+          idx: li,
+          speaker,
+          text,
+          est_ms: Math.min(shots[li]?.duration_ms ?? 4000, 6000),
+          start_ms: 0,
+          end_ms: 0,
+          tts_voice: speaker === 'Alex' ? 'en_male_1' : 'en_female_1',
+        } })
+        await tx.shots.update({ where: { id: shots[li].id }, data: { caption } })
+      }
     }
-  }
-
-  await prisma.$transaction(updates)
+  })
 
   // Validate
   const assembledScenes = await prisma.scenes.findMany({ where: { project_id: project.id }, orderBy: { index: 'asc' }, include: { shots: true, dialogue: { orderBy: { idx: 'asc' } } } })

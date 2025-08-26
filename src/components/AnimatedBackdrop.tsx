@@ -8,11 +8,13 @@ export default function AnimatedBackdrop() {
   useEffect(() => {
     const canvas = ref.current
     if (!canvas) return
-    const ctx = canvas.getContext('2d')!
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
     let raf = 0
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2)
     function resize() {
+      if (!canvas) return
       canvas.width = Math.floor(canvas.clientWidth * dpr)
       canvas.height = Math.floor(canvas.clientHeight * dpr)
     }
@@ -35,7 +37,9 @@ export default function AnimatedBackdrop() {
     }
 
     function tick() {
+      if (!canvas) return
       const { width: w, height: h } = canvas
+      if (!ctx) return
       ctx.clearRect(0, 0, w, h)
 
       // white background base already rendered by layout; add soft grayscale blobs

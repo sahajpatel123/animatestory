@@ -1,4 +1,4 @@
-import { Worker, Queue, QueueScheduler, JobsOptions } from 'bullmq'
+import { Worker, Queue } from 'bullmq'
 import IORedis from 'ioredis'
 import path from 'node:path'
 import fs from 'fs-extra'
@@ -18,7 +18,6 @@ export type SceneJob = {
 export type FinalJob = { projectId: string; sceneMp4s: string[]; outDir: string; targetFps: number }
 
 const connection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379')
-new QueueScheduler('render-queue', { connection })
 export const renderQueue = new Queue('render-queue', { connection })
 
 async function makeShot(bgPath: string, seconds: number, fps: number, outPath: string, pan?: SceneJob['shots'][0]['pan'], zoom?: SceneJob['shots'][0]['zoom']) {
