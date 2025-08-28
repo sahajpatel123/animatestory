@@ -1,5 +1,4 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import IORedis from 'ioredis'
 import { getStartupConfig } from '@/lib/startup'
 import { ENV, validateRequiredEnv } from '@/config/env'
 import { installGlobalErrorHandlers } from '@/lib/errors'
@@ -16,14 +15,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const envValidation = validateRequiredEnv()
     checks.env = { ok: envValidation.ok, missing: envValidation.missing, warnings: envValidation.warnings }
 
-    // Redis
+    // Redis (lazy import)
     try {
+      const IORedis = (await import('ioredis')).default
       const redis = new IORedis(ENV.REDIS_URL)
       const ping = await redis.ping()
       await redis.quit()
       checks.redis = { ok: true, detail: ping }
     } catch (e: any) {
-      checks.redis = { ok: false, error: e.message }
+      checks.redis = { ok: false, error: e?.message || String(e) }
     }
 
     // Storage bucket exists (import lazily)
@@ -33,7 +33,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const [exists] = await bucket.exists()
       checks.storage = { ok: exists, bucket: bucket.name }
     } catch (e: any) {
-      checks.storage = { ok: false, error: e.message }
+      checks.storage = { ok: false, error: e?.message || String(e) }
     }
 
     // DB check (lazy import)
@@ -46,15 +46,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const connected = !!snap.val()
         checks.db = { enabled: true, kind: 'realtimedb', ok: connected }
       } catch (e: any) {
-        checks.db = { enabled: true, kind: 'realtimedb', ok: false, error: e.message }
+        checks.db = { enabled: true, kind: 'realtimedb', ok: false, error: e?.message || String(e) }
       }
     } else {
       checks.db = { enabled: false, kind: 'none', ok: true }
     }
 
     // FFmpeg info
-    const cfg = getStartupConfig()
-    checks.ffmpeg = { ok: true, ffmpegPath: cfg.ffmpegPath, ffprobePath: cfg.ffprobePath }
+    try {
+      const cfg = getStartupConfig()
+      checks.ffmpeg = { ok: true, ffmpegPath: cfg.ffmpegPath, ffprobePath: cfg.ffprobePath }
+    } catch (e: any) {
+      checks.ffmpeg = { ok: false, error: e?.message || String(e) }
+    }
 
     const baseOk = checks.env.ok && checks.redis.ok && checks.storage.ok
     const ok = baseOk && checks.db.ok
