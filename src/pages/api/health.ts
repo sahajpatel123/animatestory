@@ -36,7 +36,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       try {
         const rtdb = getRtdb()
         if (!rtdb) throw new Error('RTDB not available')
-        // lightweight connectivity check
+        // attempt a trivial read of .info/connected
         const snap = await rtdb.ref('.info/connected').get()
         const connected = !!snap.val()
         checks.db = { enabled: true, kind: 'realtimedb', ok: connected }
@@ -51,7 +51,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const cfg = getStartupConfig()
     checks.ffmpeg = { ok: true, ffmpegPath: cfg.ffmpegPath, ffprobePath: cfg.ffprobePath }
 
-    const ok = checks.env.ok && checks.redis.ok && checks.storage.ok && checks.db.ok
+    const baseOk = checks.env.ok && checks.redis.ok && checks.storage.ok
+    const ok = baseOk && checks.db.ok
     res.status(ok ? 200 : 500).json({ ok, checks })
   } catch (e: any) {
     res.status(500).json({ ok: false, error: e?.message, checks })

@@ -3,6 +3,7 @@ import { Storage } from '@google-cloud/storage'
 import fs from 'fs/promises'
 import path from 'node:path'
 import { getStartupConfig } from '@/lib/startup'
+import { ENV } from '@/config/env'
 
 let storage: Storage | null = null
 let bucket: any = null
@@ -12,8 +13,8 @@ function getStorage() {
     try {
       const config = getStartupConfig()
       const creds = config.googleCredentials
-      storage = new Storage({ credentials: creds, projectId: creds.project_id })
-      bucket = storage.bucket(config.firebaseBucket)
+      storage = new Storage({ credentials: creds, projectId: creds?.project_id })
+      bucket = storage.bucket(ENV.FIREBASE_STORAGE_BUCKET)
     } catch (error) {
       console.error('Failed to initialize GCS storage:', error)
       throw new Error('GCS storage not available')
@@ -39,9 +40,8 @@ const MIME: Record<string, string> = {
 
 export function publicUrl(objectPath: string): string {
   try {
-    const config = getStartupConfig()
     const enc = encodeURIComponent(objectPath)
-    return `https://firebasestorage.googleapis.com/v0/b/${config.firebaseBucket}/o/${enc}?alt=media`
+    return `https://firebasestorage.googleapis.com/v0/b/${ENV.FIREBASE_STORAGE_BUCKET}/o/${enc}?alt=media`
   } catch (error) {
     console.error('Failed to generate public URL:', error)
     throw new Error('Failed to generate public URL')

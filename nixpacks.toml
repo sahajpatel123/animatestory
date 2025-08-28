@@ -1,11 +1,11 @@
 [phases.setup]
-nixPkgs = ["ffmpeg", "nodejs", "yarn", "redis"]
+nixPkgs = ["ffmpeg", "nodejs"]
 
 [phases.install]
-cmds = ["yarn install --frozen-lockfile"]
+cmds = ["npm ci --omit=dev"]
 
 [phases.build]
-cmds = ["yarn build"]
+cmds = ["npm run build"]
 
 [start]
-cmd = "yarn start"
+cmd = "npm start"

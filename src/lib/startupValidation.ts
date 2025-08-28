@@ -10,10 +10,9 @@ export function validateStartupAndExit() {
     console.log(`📹 FFmpeg path: ${config.ffmpegPath}`)
     console.log(`🔍 FFprobe path: ${config.ffprobePath}`)
     console.log(`🌐 Public web origin: ${config.publicWebOrigin}`)
-    console.log(`🗄️  Database URL: ${config.databaseUrl ? 'configured' : 'missing'}`)
     console.log(`🔴 Redis URL: ${config.redisUrl ? 'configured' : 'missing'}`)
     console.log(`🔥 Firebase bucket: ${config.firebaseBucket}`)
-    console.log(`☁️  Supabase URL: ${config.supabaseUrl}`)
+    console.log(`☁️  Supabase URL: ${config.supabaseUrl || 'n/a'}`)
     return config
   } catch (error) {
     console.error('❌ Startup validation failed:', error)

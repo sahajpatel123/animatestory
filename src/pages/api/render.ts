@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { renderQueue } from '@/../worker/renderWorker'
 import path from 'node:path'
 import fs from 'fs-extra'
-import { uploadFile } from '@/../../server/supaUpload'
+import { uploadFileGCS as uploadFile } from '@/../../server/gcsUpload'
 import { QueueEvents } from 'bullmq'
 import IORedis from 'ioredis'
 import { storeRenderRecord, storeManifest } from '@/repos/renders'
@@ -29,23 +29,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   for (const localScene of sceneMp4s) {
     const base = path.basename(localScene)
     const key = `${projectId}/scenes/${base}`
-    const url = await uploadFile('renders', key, localScene, 31536000)
+    const url = await uploadFile(key, localScene, 31536000)
     sceneUrls.push(url)
   }
 
   // Upload final MP4
-  const finalUrl = await uploadFile('renders', `${projectId}/final.mp4`, done.final, 31536000)
+  const finalUrl = await uploadFile(`${projectId}/final.mp4`, done.final, 31536000)
 
   // HLS: upload all files in outDir matching .m3u8 and .ts
   const files = await fs.readdir(workDir)
   let hlsUrl: string | null = null
   for (const f of files) {
     if (f.endsWith('.m3u8')) {
-      const url = await uploadFile('hls', `${projectId}/${f}`, path.join(workDir, f), 600)
+      const url = await uploadFile(`${projectId}/${f}`, path.join(workDir, f), 600)
       hlsUrl = url
     }
     if (f.endsWith('.ts')) {
-      await uploadFile('hls', `${projectId}/${f}`, path.join(workDir, f), 31536000)
+      await uploadFile(`${projectId}/${f}`, path.join(workDir, f), 31536000)
     }
   }
 
