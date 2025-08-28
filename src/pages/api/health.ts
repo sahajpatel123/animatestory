@@ -2,6 +2,11 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import IORedis from 'ioredis'
 import { getStartupConfig } from '@/lib/startup'
 import { ENV, validateRequiredEnv } from '@/config/env'
+import { installGlobalErrorHandlers } from '@/lib/errors'
+
+export const config = { runtime: 'nodejs' }
+
+installGlobalErrorHandlers()
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const checks: any = { env: {}, redis: {}, storage: {}, db: {}, ffmpeg: {} }
@@ -55,6 +60,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const ok = baseOk && checks.db.ok
     res.status(ok ? 200 : 500).json({ ok, checks })
   } catch (e: any) {
+    console.error('[api/health]', e)
     res.status(500).json({ ok: false, error: e?.message, checks })
   }
 }
