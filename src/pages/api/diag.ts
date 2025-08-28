@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { installGlobalErrorHandlers } from '@/lib/errors'
+import { SAFE_MODE } from '@/lib/safe'
 
 export const config = { runtime: 'nodejs' }
 
@@ -19,7 +20,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     for (const k of required) presence[k] = Boolean(process.env[k])
     presence['GOOGLE_CREDS_PRESENT'] = eitherCreds.some(k => Boolean(process.env[k]))
 
-    // module presence
     let hasFfmpegStatic = false
     let hasFfprobeStatic = false
     try { require.resolve('ffmpeg-static'); hasFfmpegStatic = true } catch {}
@@ -27,6 +27,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     res.status(200).json({
       ok: true,
+      safeMode: SAFE_MODE,
       node: process.version,
       port: process.env.PORT || null,
       publicOrigin: process.env.PUBLIC_WEB_ORIGIN || null,

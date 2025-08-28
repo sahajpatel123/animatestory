@@ -1,14 +1,19 @@
 import Link from 'next/link'
-import HeroVisual from '@/components/HeroVisual'
-import FilmMarquee from '@/components/FilmMarquee'
-import Reveal from '@/components/Reveal'
-import Testimonials from '@/components/Testimonials'
+import { SAFE_MODE } from '@/lib/safe'
+import React from 'react'
 
 export default function HomePage() {
+  if (SAFE_MODE) {
+    return <div>OK</div>
+  }
+  const HeroVisual = require('@/components/HeroVisual').default
+  const FilmMarquee = require('@/components/FilmMarquee').default
+  const Reveal = require('@/components/Reveal').default
+  const Testimonials = require('@/components/Testimonials').default
   return (
     <div className="space-y-12">
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
-        <Reveal>
+        {React.createElement(Reveal, null,
           <div>
             <h1 className="text-[64px] leading-[1.02] tracking-[1px]">
               Minimal animation studio for pixel-perfect stories
@@ -21,15 +26,13 @@ export default function HomePage() {
               <Link href="/pricing" className="px-6 py-3 rounded-md border border-black/15 text-lg hover:bg-black/5">Pricing</Link>
             </div>
           </div>
-        </Reveal>
-        <Reveal delay={120}><HeroVisual /></Reveal>
+        )}
+        {React.createElement(Reveal, { delay: 120 }, React.createElement(HeroVisual))}
       </section>
 
-      <Reveal>
-        <Testimonials />
-      </Reveal>
+      {React.createElement(Reveal, null, React.createElement(Testimonials))}
 
-      <FilmMarquee />
+      {React.createElement(FilmMarquee)}
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {[{

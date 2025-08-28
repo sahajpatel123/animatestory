@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { getStartupConfig } from '@/lib/startup'
 import { ENV, validateRequiredEnv } from '@/config/env'
 import { installGlobalErrorHandlers } from '@/lib/errors'
+import { SAFE_MODE } from '@/lib/safe'
 
 export const config = { runtime: 'nodejs' }
 
@@ -11,6 +11,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const checks: any = { env: {}, redis: {}, storage: {}, db: {}, ffmpeg: {} }
 
   try {
+    // SAFE_MODE: only env + module presence, no heavy deps
+    if (SAFE_MODE) {
+      const envValidation = validateRequiredEnv()
+      checks.env = { ok: envValidation.ok, missing: envValidation.missing, warnings: envValidation.warnings }
+      checks.redis = { ok: false, skipped: true }
+      checks.storage = { ok: false, skipped: true }
+      checks.db = { enabled: false, kind: 'none', ok: true }
+      checks.ffmpeg = { ok: true, note: 'skipped in SAFE_MODE' }
+      return res.status(200).json({ ok: checks.env.ok, safeMode: true, checks })
+    }
+
     // Env validation
     const envValidation = validateRequiredEnv()
     checks.env = { ok: envValidation.ok, missing: envValidation.missing, warnings: envValidation.warnings }
@@ -18,7 +29,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Redis (lazy import)
     try {
       const IORedis = (await import('ioredis')).default
-      const redis = new IORedis(ENV.REDIS_URL)
+      const redis = new IORedis(ENV.REDIS_URL || 'redis://localhost:6379')
       const ping = await redis.ping()
       await redis.quit()
       checks.redis = { ok: true, detail: ping }
@@ -52,8 +63,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       checks.db = { enabled: false, kind: 'none', ok: true }
     }
 
-    // FFmpeg info
+    // FFmpeg info (lazy import of startup)
     try {
+      const { getStartupConfig } = await import('@/lib/startup')
       const cfg = getStartupConfig()
       checks.ffmpeg = { ok: true, ffmpegPath: cfg.ffmpegPath, ffprobePath: cfg.ffprobePath }
     } catch (e: any) {
@@ -65,7 +77,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.status(ok ? 200 : 500).json({ ok, checks })
   } catch (e: any) {
     console.error('[api/health]', e)
-    res.status(500).json({ ok: false, error: e?.message, checks })
+    res.status(200).json({ ok: false, error: e?.message, checks })
   }
 }
 

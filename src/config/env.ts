@@ -3,26 +3,26 @@ import { z } from 'zod'
 // Define allowed DB kinds
 const DbKindEnum = z.enum(['realtimedb', 'firestore', 'none'])
 
-// Raw ENV with defaults
+// Raw ENV with relaxed optional fields to avoid throws at import
 const RawEnvSchema = z.object({
   // core
-  NODE_ENV: z.string().default('production'),
-  LOG_LEVEL: z.string().default('info'),
-  PUBLIC_WEB_ORIGIN: z.string(),
+  NODE_ENV: z.string().optional(),
+  LOG_LEVEL: z.string().optional(),
+  PUBLIC_WEB_ORIGIN: z.string().optional(),
 
   // queue
-  REDIS_URL: z.string(),
+  REDIS_URL: z.string().optional(),
 
   // media
   FFMPEG_PATH: z.string().optional(),
   FFPROBE_PATH: z.string().optional(),
 
   // firebase storage
-  FIREBASE_STORAGE_BUCKET: z.string(),
+  FIREBASE_STORAGE_BUCKET: z.string().optional(),
   GOOGLE_APPLICATION_CREDENTIALS_JSON: z.string().optional(),
   GOOGLE_APPLICATION_CREDENTIALS_B64: z.string().optional(),
   GOOGLE_APPLICATION_CREDENTIALS: z.string().optional(), // path
-  HLS_PUBLIC_BASE: z.string(),
+  HLS_PUBLIC_BASE: z.string().optional(),
 
   // providers (optional)
   OPENAI_API_KEY: z.string().optional(),
@@ -33,18 +33,15 @@ const RawEnvSchema = z.object({
   FREESOUND_API_KEY: z.string().optional(),
 
   // security/ops
-  JWT_SECRET: z.string(),
-  RATE_LIMIT_PER_MIN: z.coerce.number().default(20),
-  PROJECT_SPEND_CAP_USD: z.coerce.number().default(5),
-  QUEUE_DASH_USER: z.string(),
-  QUEUE_DASH_PASS: z.string(),
+  JWT_SECRET: z.string().optional(),
+  RATE_LIMIT_PER_MIN: z.coerce.number().optional(),
+  PROJECT_SPEND_CAP_USD: z.coerce.number().optional(),
+  QUEUE_DASH_USER: z.string().optional(),
+  QUEUE_DASH_PASS: z.string().optional(),
 
   // DB toggles
-  USE_DB: z
-    .union([z.string(), z.boolean()])
-    .default('true')
-    .transform((v) => (typeof v === 'string' ? v.toLowerCase() !== 'false' : Boolean(v))) as z.ZodType<boolean>,
-  DB_KIND: DbKindEnum.default('realtimedb'),
+  USE_DB: z.union([z.string(), z.boolean()]).optional(),
+  DB_KIND: DbKindEnum.optional(),
 
   // Realtime DB
   FIREBASE_DATABASE_URL: z.string().optional(),
@@ -54,11 +51,27 @@ const RawEnvSchema = z.object({
   DIRECT_URL: z.string().optional(),
 })
 
-export type EnvShape = z.infer<typeof RawEnvSchema>
+export type EnvShape = z.infer<typeof RawEnvSchema> & {
+  USE_DB: boolean
+  DB_KIND: 'realtimedb' | 'firestore' | 'none'
+  NODE_ENV?: string
+  LOG_LEVEL?: string
+  RATE_LIMIT_PER_MIN?: number
+  PROJECT_SPEND_CAP_USD?: number
+}
 
 function loadRawEnv(): EnvShape {
-  const parsed = RawEnvSchema.parse(process.env)
-  return parsed
+  const sp = RawEnvSchema.safeParse(process.env)
+  const base: any = sp.success ? sp.data : {}
+  // Defaults applied here without throwing
+  base.NODE_ENV = base.NODE_ENV ?? 'production'
+  base.LOG_LEVEL = base.LOG_LEVEL ?? 'info'
+  base.RATE_LIMIT_PER_MIN = base.RATE_LIMIT_PER_MIN ?? 20
+  base.PROJECT_SPEND_CAP_USD = base.PROJECT_SPEND_CAP_USD ?? 5
+  const rawUseDb = base.USE_DB
+  base.USE_DB = typeof rawUseDb === 'string' ? rawUseDb.toLowerCase() !== 'false' : Boolean(rawUseDb ?? true)
+  base.DB_KIND = (base.DB_KIND as any) ?? 'realtimedb'
+  return base as EnvShape
 }
 
 export const ENV: EnvShape = loadRawEnv()
@@ -72,8 +85,6 @@ export function validateRequiredEnv() {
   // queue
   if (!ENV.REDIS_URL) missing.push('REDIS_URL')
 
-  // media optional - no missing tracking
-
   // firebase storage
   if (!ENV.FIREBASE_STORAGE_BUCKET) missing.push('FIREBASE_STORAGE_BUCKET')
   const hasJson = Boolean(ENV.GOOGLE_APPLICATION_CREDENTIALS_JSON)
@@ -83,8 +94,6 @@ export function validateRequiredEnv() {
     missing.push('one of GOOGLE_APPLICATION_CREDENTIALS_JSON | GOOGLE_APPLICATION_CREDENTIALS_B64 | GOOGLE_APPLICATION_CREDENTIALS')
   }
   if (!ENV.HLS_PUBLIC_BASE) missing.push('HLS_PUBLIC_BASE')
-
-  // providers optional - warn in detail field
 
   // security/ops
   if (!ENV.JWT_SECRET) missing.push('JWT_SECRET')
@@ -96,9 +105,6 @@ export function validateRequiredEnv() {
     if (!ENV.FIREBASE_DATABASE_URL) missing.push('FIREBASE_DATABASE_URL')
   }
 
-  // Postgres keys are deprecated and should NOT be required
-  // DATABASE_URL / DIRECT_URL ignored
-
   const warnings: string[] = []
   const providerKeys = [
     'OPENAI_API_KEY',
@@ -109,7 +115,7 @@ export function validateRequiredEnv() {
     'FREESOUND_API_KEY',
   ] as const
   for (const key of providerKeys) {
-    if (!process.env[key]) warnings.push(`${key} missing (optional)`) 
+    if (!((process.env as any)[key])) warnings.push(`${key} missing (optional)`) 
   }
 
   return { ok: missing.length === 0, missing, warnings }
