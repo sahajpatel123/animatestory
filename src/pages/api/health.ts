@@ -2,7 +2,6 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import IORedis from 'ioredis'
 import { getStartupConfig } from '@/lib/startup'
 import { ENV, validateRequiredEnv } from '@/config/env'
-import { getBucket, getRtdb } from '@/server/firebase'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const checks: any = { env: {}, redis: {}, storage: {}, db: {}, ffmpeg: {} }
@@ -22,8 +21,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       checks.redis = { ok: false, error: e.message }
     }
 
-    // Storage bucket exists
+    // Storage bucket exists (import lazily)
     try {
+      const { getBucket } = await import('@/server/firebase')
       const bucket = getBucket()
       const [exists] = await bucket.exists()
       checks.storage = { ok: exists, bucket: bucket.name }
@@ -31,12 +31,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       checks.storage = { ok: false, error: e.message }
     }
 
-    // DB check
+    // DB check (lazy import)
     if (ENV.USE_DB && ENV.DB_KIND === 'realtimedb') {
       try {
+        const { getRtdb } = await import('@/server/firebase')
         const rtdb = getRtdb()
         if (!rtdb) throw new Error('RTDB not available')
-        // attempt a trivial read of .info/connected
         const snap = await rtdb.ref('.info/connected').get()
         const connected = !!snap.val()
         checks.db = { enabled: true, kind: 'realtimedb', ok: connected }
