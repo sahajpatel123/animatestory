@@ -2,15 +2,25 @@
 import { Storage } from '@google-cloud/storage'
 import fs from 'fs/promises'
 import path from 'node:path'
+import { getStartupConfig } from '@/lib/startup'
 
-const SA_JSON = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON
-const BUCKET = process.env.FIREBASE_STORAGE_BUCKET
-if (!SA_JSON) throw new Error('GOOGLE_APPLICATION_CREDENTIALS_JSON missing')
-if (!BUCKET) throw new Error('FIREBASE_STORAGE_BUCKET missing')
+let storage: Storage | null = null
+let bucket: any = null
 
-const creds = JSON.parse(SA_JSON)
-const storage = new Storage({ credentials: creds, projectId: creds.project_id })
-const bucket = storage.bucket(BUCKET)
+function getStorage() {
+  if (!storage) {
+    try {
+      const config = getStartupConfig()
+      const creds = config.googleCredentials
+      storage = new Storage({ credentials: creds, projectId: creds.project_id })
+      bucket = storage.bucket(config.firebaseBucket)
+    } catch (error) {
+      console.error('Failed to initialize GCS storage:', error)
+      throw new Error('GCS storage not available')
+    }
+  }
+  return { storage, bucket }
+}
 
 const MIME: Record<string, string> = {
   '.mp4': 'video/mp4',
@@ -27,20 +37,34 @@ const MIME: Record<string, string> = {
   '.txt': 'text/plain',
 }
 
-export function publicUrl(objectPath: string) {
-  const enc = encodeURIComponent(objectPath)
-  return `https://firebasestorage.googleapis.com/v0/b/${BUCKET}/o/${enc}?alt=media`
+export function publicUrl(objectPath: string): string {
+  try {
+    const config = getStartupConfig()
+    const enc = encodeURIComponent(objectPath)
+    return `https://firebasestorage.googleapis.com/v0/b/${config.firebaseBucket}/o/${enc}?alt=media`
+  } catch (error) {
+    console.error('Failed to generate public URL:', error)
+    throw new Error('Failed to generate public URL')
+  }
 }
 
-async function uploadOnce(objectPath: string, localPath: string, cacheSeconds = 3600) {
-  const ext = path.extname(objectPath).toLowerCase()
-  const contentType = MIME[ext] ?? 'application/octet-stream'
-  await bucket.upload(localPath, {
-    destination: objectPath,
-    metadata: { cacheControl: `public, max-age=${cacheSeconds}`, contentType },
-    resumable: false,
-  })
-  return publicUrl(objectPath)
+async function uploadOnce(objectPath: string, localPath: string, cacheSeconds = 3600): Promise<string> {
+  try {
+    const { bucket } = getStorage()
+    const file = bucket.file(objectPath)
+    
+    await file.save(await fs.readFile(localPath), {
+      metadata: {
+        contentType: MIME[path.extname(objectPath).toLowerCase()] || 'application/octet-stream',
+        cacheControl: `public, max-age=${cacheSeconds}`,
+      },
+    })
+    
+    return publicUrl(objectPath)
+  } catch (error) {
+    console.error('Upload failed:', error)
+    throw error
+  }
 }
 
 /** Retries transient 5xx/429 errors; good for CI/worker spikes */

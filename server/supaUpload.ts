@@ -1,11 +1,17 @@
 import { createClient } from '@supabase/supabase-js'
 import fs from 'fs/promises'
 import path from 'node:path'
+import { getStartupConfig } from '@/lib/startup'
 
-const supa = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+function getSupabaseClient() {
+  try {
+    const config = getStartupConfig()
+    return createClient(config.supabaseUrl, config.supabaseServiceKey)
+  } catch (error) {
+    console.error('Failed to create Supabase client:', error)
+    throw new Error('Supabase client not available')
+  }
+}
 
 const mime = (p: string) => ({
   '.mp4': 'video/mp4',
@@ -19,11 +25,22 @@ const mime = (p: string) => ({
 }[path.extname(p).toLowerCase()] || 'application/octet-stream')
 
 export async function uploadFile(bucket: 'assets'|'renders'|'hls', key: string, localPath: string, cache = 3600) {
-  const buf = await fs.readFile(localPath)
-  const { error } = await supa.storage.from(bucket).upload(key, buf, { upsert: true, contentType: mime(localPath), cacheControl: String(cache) })
-  if (error) throw error
-  const { data } = supa.storage.from(bucket).getPublicUrl(key)
-  return data.publicUrl
+  try {
+    const supa = getSupabaseClient()
+    const { data, error } = await supa.storage.from(bucket).upload(key, await fs.readFile(localPath), {
+      contentType: mime(localPath),
+      cacheControl: `public, max-age=${cache}`,
+      upsert: true,
+    })
+    
+    if (error) throw error
+    
+    const { data: urlData } = supa.storage.from(bucket).getPublicUrl(key)
+    return urlData.publicUrl
+  } catch (error) {
+    console.error('Supabase upload failed:', error)
+    throw error
+  }
 }
 
 

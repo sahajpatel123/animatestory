@@ -1,13 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { PrismaClient } from '@prisma/client'
 import { renderQueue } from '@/../worker/renderWorker'
 import path from 'node:path'
 import fs from 'fs-extra'
 import { uploadFile } from '@/../../server/supaUpload'
 import { QueueEvents } from 'bullmq'
 import IORedis from 'ioredis'
-
-const prisma = new PrismaClient()
+import { storeRenderRecord, storeManifest } from '@/repos/renders'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -24,7 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const finalJob = await renderQueue.add('render:final', { projectId, sceneMp4s, outDir: workDir, targetFps: 30 }, { attempts: 3, backoff: { type: 'exponential', delay: 2000 } })
   const connection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379')
   const events = new QueueEvents('render-queue', { connection })
-  const done = await finalJob.waitUntilFinished(events, 500000)
+  const done: any = await finalJob.waitUntilFinished(events, 500000)
 
   // Upload scene MP4s
   const sceneUrls: string[] = []
@@ -51,7 +49,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   }
 
-  await prisma.renders.create({ data: { project_id: projectId, url: finalUrl, fps: 30, width: 1920, height: 1080, runtime_ms: 0 } })
+  // Persist to RTDB
+  try {
+    await storeRenderRecord({ projectId, url: finalUrl, hlsUrl: hlsUrl || undefined })
+    // optional manifest persistence if exists
+    const manifestPath = path.join(workDir, 'render_manifest.json')
+    if (await fs.pathExists(manifestPath)) {
+      const manifest = await fs.readJSON(manifestPath)
+      await storeManifest(projectId, manifest)
+    }
+  } catch (e: any) {
+    if (e?.status === 501) {
+      await events.close(); await connection.quit()
+      return res.status(501).json({ error: 'DB disabled', finalUrl, hlsUrl, scenes: sceneUrls })
+    }
+    throw e
+  }
+
   await events.close()
   await connection.quit()
 

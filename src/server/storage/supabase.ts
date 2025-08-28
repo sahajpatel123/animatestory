@@ -1,17 +1,28 @@
 import { createClient } from '@supabase/supabase-js'
-
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-const service = process.env.SUPABASE_SERVICE_ROLE_KEY!
+import { getStartupConfig } from '@/lib/startup'
 
 export function getAdminClient() {
-  if (!url || !service) throw new Error('Supabase admin env missing')
-  return createClient(url, service, { auth: { persistSession: false } })
+  try {
+    const config = getStartupConfig()
+    return createClient(config.supabaseUrl, config.supabaseServiceKey, { 
+      auth: { persistSession: false } 
+    })
+  } catch (error) {
+    console.error('Failed to create Supabase admin client:', error)
+    throw new Error('Supabase admin client not available')
+  }
 }
 
 export function getPublicClient() {
-  if (!url || !anon) throw new Error('Supabase public env missing')
-  return createClient(url, anon, { auth: { persistSession: true } })
+  try {
+    const config = getStartupConfig()
+    return createClient(config.supabaseUrl, config.supabaseAnonKey, { 
+      auth: { persistSession: false } 
+    })
+  } catch (error) {
+    console.error('Failed to create Supabase public client:', error)
+    throw new Error('Supabase public client not available')
+  }
 }
 
 export async function uploadBuffer(params: { bucket: string; path: string; data: Buffer; contentType: string; cacheControl?: string }) {
