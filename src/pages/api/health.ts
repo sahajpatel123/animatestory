@@ -2,6 +2,8 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { ENV, validateRequiredEnv } from '@/config/env'
 import { installGlobalErrorHandlers } from '@/lib/errors'
 import { SAFE_MODE } from '@/lib/safe'
+import { FFMPEG_PATH, FFPROBE_PATH } from '@/server/ffmpegPaths'
+import { LIMITS } from '@/server/guardrails'
 
 export const config = { runtime: 'nodejs' }
 
@@ -18,7 +20,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       checks.redis = { ok: false, skipped: true }
       checks.storage = { ok: false, skipped: true }
       checks.db = { enabled: false, kind: 'none', ok: true }
-      checks.ffmpeg = { ok: true, note: 'skipped in SAFE_MODE' }
+      checks.ffmpeg = { ok: true, note: 'skipped in SAFE_MODE', ffmpegPath: FFMPEG_PATH, ffprobePath: FFPROBE_PATH }
       return res.status(200).json({ ok: checks.env.ok, safeMode: true, checks })
     }
 
@@ -47,7 +49,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       checks.storage = { ok: false, error: e?.message || String(e) }
     }
 
-    // DB check (lazy import)
+    // DB check (only Firebase RTDB; never Postgres)
     if (ENV.USE_DB && ENV.DB_KIND === 'realtimedb') {
       try {
         const { getRtdb } = await import('@/server/firebase')
@@ -65,11 +67,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // FFmpeg info (lazy import of startup)
     try {
-      const { getStartupConfig } = await import('@/lib/startup')
-      const cfg = getStartupConfig()
-      checks.ffmpeg = { ok: true, ffmpegPath: cfg.ffmpegPath, ffprobePath: cfg.ffprobePath }
+      checks.ffmpeg = { ok: true, ffmpegPath: FFMPEG_PATH, ffprobePath: FFPROBE_PATH }
     } catch (e: any) {
       checks.ffmpeg = { ok: false, error: e?.message || String(e) }
+    }
+
+    // Guardrails summary (optional projectId)
+    const projectId = (req.query.projectId as string) || ''
+    checks.guardrails = { limits: LIMITS }
+    if (projectId) {
+      try {
+        const { getRtdb } = await import('@/server/firebase')
+        const rtdb = getRtdb()
+        const snap = await rtdb.ref(`/projects/${projectId}/plan/validation`).get()
+        if (snap.exists()) checks.guardrails.lastValidation = snap.val()
+      } catch {}
     }
 
     const baseOk = checks.env.ok && checks.redis.ok && checks.storage.ok

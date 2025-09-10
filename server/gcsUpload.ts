@@ -3,6 +3,7 @@ import { Storage } from '@google-cloud/storage'
 import fs from 'fs/promises'
 import path from 'node:path'
 import { getStartupConfig } from '@/lib/startup'
+import { logJSON } from '@/server/debug'
 import { ENV } from '@/config/env'
 import { SAFE_MODE } from '@/lib/safe'
 
@@ -66,7 +67,17 @@ export async function uploadFileGCS(objectPath: string, localPath: string, cache
   let lastErr: unknown
   for (let i = 0; i < attempts; i++) {
     try {
-      return await uploadOnce(objectPath, localPath, cacheSeconds)
+      const url = await uploadOnce(objectPath, localPath, cacheSeconds)
+      // Verify via GET
+      try {
+        const r = await fetch(url, { method: 'GET' })
+        if (!r.ok) throw new Error(`verify ${r.status}`)
+        logJSON('upload', { stage: 'upload', object: objectPath, url })
+      } catch (ve: any) {
+        if (i < attempts - 1) { await new Promise(r => setTimeout(r, 500 * 2 ** i)); continue }
+        throw ve
+      }
+      return url
     } catch (e: any) {
       lastErr = e
       if (e?.code && ![429, 500, 502, 503, 504].includes(Number(e.code))) break

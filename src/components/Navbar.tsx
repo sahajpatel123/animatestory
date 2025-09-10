@@ -25,6 +25,13 @@ export default function Navbar() {
               </Link>
             </li>
           ))}
+          {process.env.NEXT_PUBLIC_QUEUE_DASH_URL && (
+            <li>
+              <a href={process.env.NEXT_PUBLIC_QUEUE_DASH_URL} className={`px-4 py-2.5 rounded-md text-xl transition-colors text-black hover:bg-black/5`}>
+                Admin
+              </a>
+            </li>
+          )}
         </ul>
       </nav>
     </header>
