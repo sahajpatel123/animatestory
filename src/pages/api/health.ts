@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { ENV, validateRequiredEnv } from '@/config/env'
+import { loadEnv, validateRequiredEnv } from '@/config/env'
 import { installGlobalErrorHandlers } from '@/lib/errors'
 import { SAFE_MODE } from '@/lib/safe'
 import { FFMPEG_PATH, FFPROBE_PATH } from '@/server/ffmpegPaths'
@@ -30,6 +30,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Redis (lazy import)
     try {
+      const ENV = loadEnv()
       const IORedis = (await import('ioredis')).default
       const redis = new IORedis(ENV.REDIS_URL || 'redis://localhost:6379')
       const ping = await redis.ping()
@@ -42,7 +43,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Storage bucket exists (import lazily)
     try {
       const { getBucket } = await import('@/server/firebase')
-      const bucket = getBucket()
+      const bucket = await getBucket()
       const [exists] = await bucket.exists()
       checks.storage = { ok: exists, bucket: bucket.name }
     } catch (e: any) {
@@ -50,10 +51,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // DB check (only Firebase RTDB; never Postgres)
+    const ENV = loadEnv()
     if (ENV.USE_DB && ENV.DB_KIND === 'realtimedb') {
       try {
         const { getRtdb } = await import('@/server/firebase')
-        const rtdb = getRtdb()
+        const rtdb = await getRtdb()
         if (!rtdb) throw new Error('RTDB not available')
         const snap = await rtdb.ref('.info/connected').get()
         const connected = !!snap.val()
@@ -67,7 +69,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // FFmpeg info (lazy import of startup)
     try {
-      checks.ffmpeg = { ok: true, ffmpegPath: FFMPEG_PATH, ffprobePath: FFPROBE_PATH }
+      const { resolveFfmpeg } = await import('@/server/ffmpegPaths')
+      const { ffmpeg, ffprobe } = await resolveFfmpeg()
+      checks.ffmpeg = { ok: true, ffmpegPath: ffmpeg, ffprobePath: ffprobe }
     } catch (e: any) {
       checks.ffmpeg = { ok: false, error: e?.message || String(e) }
     }

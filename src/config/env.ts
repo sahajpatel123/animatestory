@@ -74,12 +74,13 @@ function loadRawEnv(): EnvShape {
   return base as EnvShape
 }
 
-export const ENV: EnvShape = loadRawEnv()
+export function loadEnv(): EnvShape { return loadRawEnv() }
 
 export function validateRequiredEnv() {
   const missing: string[] = []
 
   // core
+  const ENV = loadRawEnv()
   if (!ENV.PUBLIC_WEB_ORIGIN) missing.push('PUBLIC_WEB_ORIGIN')
 
   // queue

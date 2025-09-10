@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import fs from 'fs-extra'
 import path from 'node:path'
-import { FFMPEG_PATH, FFPROBE_PATH } from '@/server/ffmpegPaths'
+import { resolveFfmpeg } from '@/server/ffmpegPaths'
 
 export const config = { runtime: 'nodejs' }
 
@@ -10,6 +10,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const projectId = (req.query.projectId as string) || ''
   if (!projectId) return res.status(400).json({ ok: false, error: 'projectId required' })
   try {
+    const { ffmpeg: FFMPEG_PATH, ffprobe: FFPROBE_PATH } = await resolveFfmpeg()
     const base = path.join('/tmp', projectId)
     const groups = ['shots','audio','music','sfx','captions','scenes','final']
     const files: Record<string, string[]> = {}

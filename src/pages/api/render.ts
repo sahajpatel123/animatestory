@@ -3,20 +3,8 @@ import path from 'node:path'
 import fs from 'fs-extra'
 import crypto from 'node:crypto'
 import { installGlobalErrorHandlers } from '@/lib/errors'
-import { getRtdb } from '@/server/firebase'
-import { generateVisualsForScene } from '@/server/providers/visuals'
-import { synthesizeSceneLines } from '@/server/providers/tts'
-import { stageMusicAndSfxForScene } from '@/server/providers/audio'
-import { writeSrt } from '@/server/media/captions'
-import { renderScene, renderFinal } from '@/server/worker/render'
-import { uploadFileGCS } from '@/server/gcsUpload'
-import { uploadDirGCS } from '@/server/upload/uploadDirGCS'
-import { sha256File } from '@/server/hash'
-import { ZDialoguePlan as ZPlan, checkRuntimeFit, speechDensity, clampCaption } from '@/server/guardrails'
-import { ZMusicMeta, ZSfxItem } from '@/types/providerSchemas'
 import { traceId, logJSON } from '@/server/debug'
 import { fail } from '@/server/http/fail'
-import { stubPng, stubSilence } from '@/server/stubs'
 
 export const config = { runtime: 'nodejs' }
 
@@ -33,6 +21,45 @@ function jsonError(res: NextApiResponse, code: number, errCode: string, error: s
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ ok: false, code: 'E_METHOD', error: 'Method not allowed' })
   try {
+    // Lazy imports to avoid import-time side effects
+    const [{ getRtdb }] = await Promise.all([
+      import('@/server/firebase')
+    ])
+    const [
+      { generateVisualsForScene }
+    ] = await Promise.all([
+      import('@/server/providers/visuals')
+    ])
+    const [{ synthesizeSceneLines }] = await Promise.all([
+      import('@/server/providers/tts')
+    ])
+    const [{ stageMusicAndSfxForScene }] = await Promise.all([
+      import('@/server/providers/audio')
+    ])
+    const [{ writeSrt }] = await Promise.all([
+      import('@/server/media/captions')
+    ])
+    const [{ renderScene, renderFinal }] = await Promise.all([
+      import('@/server/worker/render')
+    ])
+    const [{ uploadFileGCS }] = await Promise.all([
+      import('@/server/gcsUpload')
+    ])
+    const [{ uploadDirGCS }] = await Promise.all([
+      import('@/server/upload/uploadDirGCS')
+    ])
+    const [{ sha256File }] = await Promise.all([
+      import('@/server/hash')
+    ])
+    const [{ ZDialoguePlan: ZPlan, checkRuntimeFit, speechDensity }] = await Promise.all([
+      import('@/server/guardrails')
+    ])
+    const [{ ZMusicMeta, ZSfxItem }] = await Promise.all([
+      import('@/types/providerSchemas')
+    ])
+    const [{ stubPng, stubSilence }] = await Promise.all([
+      import('@/server/stubs')
+    ])
     const tid = traceId()
     const q = req.query as any
     const b = (req.body || {}) as any
@@ -50,7 +77,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { projectId, strict = false, regenerate = false } = b
     if (!projectId) return fail(res, 400, 'E_BAD_REQUEST', 'projectId required', { tid })
 
-    const rtdb = getRtdb()
+    const rtdb = await getRtdb()
     const planSnap = await rtdb.ref(`/projects/${projectId}/plan`).get()
     if (!planSnap.exists()) return fail(res, 404, 'E_PLAN_MISSING', 'DialoguePlan not found for project', { tid, stage: 'plan' })
     const plan = planSnap.val() as Plan

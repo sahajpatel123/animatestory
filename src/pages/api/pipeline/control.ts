@@ -1,6 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { z } from 'zod'
-import { rejectUnsafePrompt, checkRuntimeFit, speechDensity, clampCaption, ZDialoguePlan as ZPlan } from '@/server/guardrails'
 import { traceId, logJSON } from '@/server/debug'
 import { fail } from '@/server/http/fail'
 import crypto from 'node:crypto'
@@ -101,6 +100,14 @@ async function callOpenAI(prompt: string, targetSec: number, projectId: string) 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).end()
   try {
+    const [{ rejectUnsafePrompt, checkRuntimeFit, speechDensity, clampCaption, ZDialoguePlan: ZPlan }] = await Promise.all([
+      import('@/server/guardrails')
+    ])
+    const cryptoMod = await import('node:crypto')
+    const crypto = cryptoMod.default || (cryptoMod as any)
+    const [{ getRtdb }] = await Promise.all([
+      import('@/server/firebase')
+    ])
     const tid = traceId()
     const q = req.query as any
     const b = (req.body || {}) as any
@@ -114,7 +121,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!prompt) return res.status(400).json({ ok: false, error: 'Invalid prompt' })
     const unsafe = rejectUnsafePrompt(prompt)
     if (!unsafe.ok) return res.status(422).json({ ok: false, code: 'E_UNSAFE_PROMPT', reason: unsafe.reason })
-    const projectId = incomingId || crypto.randomUUID()
+    const projectId = incomingId || (crypto.randomUUID ? crypto.randomUUID() : (Math.random().toString(36).slice(2)))
     const cacheKey = hashKey(prompt, Number(targetSec))
 
     // Cache

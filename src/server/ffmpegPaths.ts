@@ -1,10 +1,13 @@
-import ffmpegStatic from 'ffmpeg-static';
-import ffprobeStatic from 'ffprobe-static';
-
-process.env.FFMPEG_PATH ||= (ffmpegStatic as unknown as string);
-process.env.FFPROBE_PATH ||= (ffprobeStatic as any).path;
-
-export const FFMPEG_PATH = process.env.FFMPEG_PATH!;
-export const FFPROBE_PATH = process.env.FFPROBE_PATH!;
+export async function resolveFfmpeg(): Promise<{ ffmpeg: string; ffprobe: string }> {
+  try {
+    const modFfmpeg = await import('ffmpeg-static')
+    const modFfprobe = await import('ffprobe-static')
+    const ffmpeg = (modFfmpeg as any).default as string
+    const ffprobe = (modFfprobe as any).path as string
+    return { ffmpeg: process.env.FFMPEG_PATH || ffmpeg, ffprobe: process.env.FFPROBE_PATH || ffprobe }
+  } catch (e) {
+    return { ffmpeg: process.env.FFMPEG_PATH || 'ffmpeg', ffprobe: process.env.FFPROBE_PATH || 'ffprobe' }
+  }
+}
 
 
