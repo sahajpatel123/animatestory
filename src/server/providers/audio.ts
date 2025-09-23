@@ -33,7 +33,7 @@ export async function getActMusic(projectId: string, actIndex: number, targetMs:
 
   // Cache lookup
   try {
-    const db = getRtdb(); const snap = await db.ref(`/cache/bgm/${key}`).get()
+    const db = await getRtdb(); const snap = await db.ref(`/cache/bgm/${key}`).get()
     if (snap.exists() && await fs.pathExists(outPath)) {
       const meta = snap.val() as any
       return { musicPath: outPath, provider: meta.provider || 'loops', durationMs: await probeMs(outPath), cacheKey: key }
@@ -55,7 +55,7 @@ export async function getActMusic(projectId: string, actIndex: number, targetMs:
   const sources = loopCandidates.filter((_, i) => existing[i])
   if (!sources.length) throw new Error('No loop files found in public/loops')
   const durationMs = await concatLoopsTo(outPath, sources, targetMs)
-  try { const db = getRtdb(); await db.ref(`/cache/bgm/${key}`).set({ provider: 'loops', durationMs, createdAtISO: new Date().toISOString() }) } catch {}
+  try { const db = await getRtdb(); await db.ref(`/cache/bgm/${key}`).set({ provider: 'loops', durationMs, createdAtISO: new Date().toISOString() }) } catch {}
   return { musicPath: outPath, provider: 'loops', durationMs, cacheKey: key }
 }
 
@@ -64,7 +64,7 @@ export async function getSfxForScene(scene: Scene, projectId: string): Promise<A
   await fs.ensureDir(outDir)
   const key = hashKey(['sfx', scene.id, scene.title])
   try {
-    const db = getRtdb(); const snap = await db.ref(`/cache/sfx/${key}`).get()
+    const db = await getRtdb(); const snap = await db.ref(`/cache/sfx/${key}`).get()
     if (snap.exists()) {
       const arr = snap.val() as Array<{ path: string; atMs: number; label: string; provider: 'freesound' | 'pack' }>
       const exists = await Promise.all(arr.map(a => fs.pathExists(a.path)))
@@ -112,7 +112,7 @@ export async function getSfxForScene(scene: Scene, projectId: string): Promise<A
     }
   }
 
-  try { const db = getRtdb(); await db.ref(`/cache/sfx/${key}`).set(results) } catch {}
+  try { const db = await getRtdb(); await db.ref(`/cache/sfx/${key}`).set(results) } catch {}
   return results
 }
 

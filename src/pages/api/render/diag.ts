@@ -40,7 +40,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let renderPresent = false
     try {
       const { getRtdb } = await import('@/server/firebase')
-      const rtdb = getRtdb()
+      const rtdb = await getRtdb()
       planPresent = (await rtdb.ref(`/projects/${projectId}/plan`).get()).exists()
       renderPresent = (await rtdb.ref(`/renders/${projectId}`).get()).exists()
     } catch {}
@@ -48,7 +48,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let cacheKeys: Record<string, number> = {}
     try {
       const { getRtdb } = await import('@/server/firebase')
-      const rtdb = getRtdb()
+      const rtdb = await getRtdb()
       const caches = ['/cache/dialoguePlans','/cache/visuals','/cache/tts','/cache/bgm','/cache/sfx']
       for (const c of caches) {
         const snap = await rtdb.ref(c).limitToLast(20).get()

@@ -1,1 +1,1 @@
-self.__REACT_LOADABLE_MANIFEST="{}"
+self.__REACT_LOADABLE_MANIFEST='{"components/Player.tsx -> hls.js":{"id":3915,"files":["static/chunks/a4634e51.3360e91c7714a025.js"]}}';

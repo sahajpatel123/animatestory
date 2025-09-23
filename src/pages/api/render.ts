@@ -60,6 +60,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const [{ stubPng, stubSilence }] = await Promise.all([
       import('@/server/stubs')
     ])
+    const [{ resolveFfmpeg }] = await Promise.all([
+      import('@/server/ffmpegPaths')
+    ])
     const tid = traceId()
     const q = req.query as any
     const b = (req.body || {}) as any
@@ -97,11 +100,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // ffmpeg paths and versions
     try {
-      const { FFMPEG_PATH, FFPROBE_PATH } = await import('@/server/ffmpegPaths')
+      const { ffmpeg, ffprobe } = await resolveFfmpeg()
       const { spawnSync } = await import('node:child_process')
-      const v1 = (spawnSync(FFMPEG_PATH || 'ffmpeg', ['-version']).stdout || Buffer.from('')).toString().split('\n')[0]
-      const v2 = (spawnSync(FFPROBE_PATH || 'ffprobe', ['-version']).stdout || Buffer.from('')).toString().split('\n')[0]
-      logJSON('ffmpeg:paths', { tid, ffmpeg: FFMPEG_PATH, ffprobe: FFPROBE_PATH, ffmpegVersion: v1, ffprobeVersion: v2 })
+      const v1 = (spawnSync(ffmpeg || 'ffmpeg', ['-version']).stdout || Buffer.from('')).toString().split('\n')[0]
+      const v2 = (spawnSync(ffprobe || 'ffprobe', ['-version']).stdout || Buffer.from('')).toString().split('\n')[0]
+      logJSON('ffmpeg:paths', { tid, ffmpeg, ffprobe, ffmpegVersion: v1, ffprobeVersion: v2 })
     } catch {}
 
     // Per-scene targetMs + chapters

@@ -1,3 +1,4 @@
+import path from 'node:path'
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
@@ -11,6 +12,14 @@ const nextConfig = {
       { protocol: 'https', hostname: '**' },
       { protocol: 'http', hostname: '**' }
     ]
+  },
+  webpack: (config) => {
+    config.resolve = config.resolve || {}
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      '@': path.resolve(process.cwd(), 'src')
+    }
+    return config
   }
 };
 

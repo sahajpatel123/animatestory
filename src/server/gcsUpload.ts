@@ -1,10 +1,9 @@
-// server/gcsUpload.ts
 import { Storage } from '@google-cloud/storage'
 import fs from 'fs/promises'
 import path from 'node:path'
 import { getStartupConfig } from '@/lib/startup'
 import { logJSON } from '@/server/debug'
-import { ENV } from '@/config/env'
+import { loadEnv } from '@/config/env'
 import { SAFE_MODE } from '@/lib/safe'
 
 let storage: Storage | null = null
@@ -17,6 +16,7 @@ function getStorage() {
       const config = getStartupConfig()
       const creds = config.googleCredentials
       storage = new Storage({ credentials: creds, projectId: creds?.project_id })
+      const ENV = loadEnv()
       const bucketName = ENV.FIREBASE_STORAGE_BUCKET || ''
       if (!bucketName) throw new Error('FIREBASE_STORAGE_BUCKET missing')
       bucket = storage.bucket(bucketName)
@@ -30,8 +30,8 @@ function getStorage() {
 
 const MIME: Record<string, string> = {
   '.mp4': 'video/mp4',
-  '.m3u8': 'application/vnd.apple.mpegurl',   // HLS playlist
-  '.ts': 'video/mp2t',                        // HLS segments
+  '.m3u8': 'application/vnd.apple.mpegurl',
+  '.ts': 'video/mp2t',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
@@ -44,6 +44,7 @@ const MIME: Record<string, string> = {
 }
 
 export function publicUrl(objectPath: string): string {
+  const ENV = loadEnv()
   const bucketName = ENV.FIREBASE_STORAGE_BUCKET || ''
   if (!bucketName) throw new Error('FIREBASE_STORAGE_BUCKET missing')
   const enc = encodeURIComponent(objectPath)
@@ -62,13 +63,11 @@ async function uploadOnce(objectPath: string, localPath: string, cacheSeconds = 
   return publicUrl(objectPath)
 }
 
-/** Retries transient 5xx/429 errors; good for CI/worker spikes */
 export async function uploadFileGCS(objectPath: string, localPath: string, cacheSeconds = 3600, attempts = 3) {
   let lastErr: unknown
   for (let i = 0; i < attempts; i++) {
     try {
       const url = await uploadOnce(objectPath, localPath, cacheSeconds)
-      // Verify via GET
       try {
         const r = await fetch(url, { method: 'GET' })
         if (!r.ok) throw new Error(`verify ${r.status}`)
@@ -87,14 +86,15 @@ export async function uploadFileGCS(objectPath: string, localPath: string, cache
   throw lastErr
 }
 
-/** Convenience: upload every file in a local dir to a remote prefix (e.g., HLS) */
 export async function uploadDirGCS(localDir: string, remotePrefix: string, cacheSeconds = 3600) {
   const files = await fs.readdir(localDir)
   const out: Record<string, string> = {}
   for (const f of files) {
     const lp = path.join(localDir, f)
-    const key = `${remotePrefix.replace(/\/+$/, '')}/${f}`
+    const key = `${remotePrefix.replace(/\/+$|\/+$|^\/+/g, '').replace(/\/+$/, '')}/${f}`
     out[f] = await uploadFileGCS(key, lp, cacheSeconds)
   }
   return out
 }
+
+

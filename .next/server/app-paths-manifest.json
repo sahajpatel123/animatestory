@@ -1,6 +1,17 @@
 {
-  "/page": "app/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api-docs/page": "app/api-docs/page.js",
   "/create/page": "app/create/page.js",
+  "/cookies/page": "app/cookies/page.js",
+  "/privacy/page": "app/privacy/page.js",
+  "/docs/page": "app/docs/page.js",
+  "/project/[id]/page": "app/project/[id]/page.js",
   "/pricing/page": "app/pricing/page.js",
-  "/animate/page": "app/animate/page.js"
+  "/status/page": "app/status/page.js",
+  "/animate/page": "app/animate/page.js",
+  "/watch/[id]/page": "app/watch/[id]/page.js",
+  "/terms/page": "app/terms/page.js",
+  "/api/page": "app/api/page.js",
+  "/about/page": "app/about/page.js",
+  "/page": "app/page.js"
 }

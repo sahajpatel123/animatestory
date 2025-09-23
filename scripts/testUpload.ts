@@ -1,5 +1,5 @@
 import fs from 'fs/promises'
-import { uploadFileGCS } from '../server/gcsUpload'
+import { uploadFileGCS } from '../src/server/gcsUpload'
 
 ;(async () => {
   await fs.writeFile('/tmp/hello.txt', 'hello world')

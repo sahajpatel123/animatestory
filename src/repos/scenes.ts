@@ -4,7 +4,7 @@ import { Scene, SceneSchema } from '@/types/models'
 const base = (projectId: string) => `/projects/${projectId}/scenes`
 
 export async function listScenes(projectId: string): Promise<Scene[]> {
-  const db = getRtdb()
+  const db = await getRtdb()
   if (!db) throw Object.assign(new Error('DB disabled'), { status: 501 })
   const snap = await db.ref(base(projectId)).get()
   if (!snap.exists()) return []
@@ -14,7 +14,7 @@ export async function listScenes(projectId: string): Promise<Scene[]> {
 }
 
 export async function getScene(projectId: string, sceneId: string): Promise<Scene | null> {
-  const db = getRtdb()
+  const db = await getRtdb()
   if (!db) throw Object.assign(new Error('DB disabled'), { status: 501 })
   const snap = await db.ref(`${base(projectId)}/${sceneId}`).get()
   if (!snap.exists()) return null
@@ -22,7 +22,7 @@ export async function getScene(projectId: string, sceneId: string): Promise<Scen
 }
 
 export async function upsertScene(projectId: string, sceneId: string, data: Scene): Promise<Scene> {
-  const db = getRtdb()
+  const db = await getRtdb()
   if (!db) throw Object.assign(new Error('DB disabled'), { status: 501 })
   const parsed = SceneSchema.parse(data)
   await db.ref(`${base(projectId)}/${sceneId}`).set(parsed)

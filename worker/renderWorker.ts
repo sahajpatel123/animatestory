@@ -4,7 +4,7 @@ import path from 'node:path'
 import fs from 'fs-extra'
 import { run, ensureTools } from './ffmpeg'
 import ffmpeg from 'fluent-ffmpeg'
-import { FFMPEG_PATH, FFPROBE_PATH } from '@/server/ffmpegPaths'
+import { resolveFfmpeg } from '@/server/ffmpegPaths'
 import { kenBurnsFilter, srtFromCaptions } from './filters'
 
 export type SceneJob = {
@@ -57,8 +57,11 @@ async function burnSubs(inPath: string, captions: Array<{ startMs: number; endMs
 }
 
 new Worker('render-queue', async (job) => {
-  ffmpeg.setFfmpegPath(FFMPEG_PATH)
-  ffmpeg.setFfprobePath(FFPROBE_PATH)
+  try {
+    const { ffmpeg: ffmpegPath, ffprobe: ffprobePath } = await resolveFfmpeg()
+    ffmpeg.setFfmpegPath(ffmpegPath)
+    ffmpeg.setFfprobePath(ffprobePath)
+  } catch {}
   await ensureTools()
   if (job.name === 'render:scene') {
     const p = job.data as SceneJob

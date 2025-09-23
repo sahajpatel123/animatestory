@@ -53,7 +53,7 @@ function validateGuards(plan: z.infer<typeof DialoguePlan>) {
 async function getCachedPlan(projectId: string, cacheKey: string) {
   try {
     const { getRtdb } = await import('@/server/firebase')
-    const db = getRtdb()
+    const db = await getRtdb()
     const snap = await db.ref(`/cache/dialoguePlans/${cacheKey}`).get()
     if (snap.exists()) return snap.val()
   } catch {}
@@ -63,7 +63,7 @@ async function getCachedPlan(projectId: string, cacheKey: string) {
 async function storePlan(projectId: string, cacheKey: string, plan: any) {
   try {
     const { getRtdb } = await import('@/server/firebase')
-    const db = getRtdb()
+    const db = await getRtdb()
     await db.ref(`/projects/${projectId}/plan`).set(plan)
     await db.ref(`/cache/dialoguePlans/${cacheKey}`).set(plan)
   } catch {}

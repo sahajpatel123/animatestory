@@ -16,8 +16,15 @@ export async function getAdminApp() {
   const ENV = loadEnv()
   const credsJson = tryParseJson(ENV.GOOGLE_APPLICATION_CREDENTIALS_JSON || '')
   const credsB64 = tryParseJson(ENV.GOOGLE_APPLICATION_CREDENTIALS_B64 ? Buffer.from(ENV.GOOGLE_APPLICATION_CREDENTIALS_B64, 'base64').toString('utf8') : '')
-  const credsPath = ENV.GOOGLE_APPLICATION_CREDENTIALS ? require(ENV.GOOGLE_APPLICATION_CREDENTIALS) : null
-  const creds = credsJson || credsB64 || credsPath || null
+  let credsFile: any = null
+  if (ENV.GOOGLE_APPLICATION_CREDENTIALS) {
+    try {
+      const fs = await import('node:fs/promises')
+      const text = await fs.readFile(ENV.GOOGLE_APPLICATION_CREDENTIALS, 'utf8')
+      credsFile = JSON.parse(text)
+    } catch {}
+  }
+  const creds = credsJson || credsB64 || credsFile || null
   app = initializeApp({
     credential: creds ? (credential as any).cert(creds) : (credential as any).applicationDefault(),
     databaseURL: ENV.FIREBASE_DATABASE_URL,

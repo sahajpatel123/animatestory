@@ -8,7 +8,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!id) return res.status(400).json({ ok: false, error: 'id required' })
   try {
     const { getRtdb } = await import('@/server/firebase')
-    const db = getRtdb()
+    const db = await getRtdb()
     const [planSnap, renderSnap] = await Promise.all([
       db.ref(`/projects/${id}/plan`).get(),
       db.ref(`/renders/${id}`).get(),

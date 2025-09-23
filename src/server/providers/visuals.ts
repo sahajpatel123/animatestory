@@ -37,7 +37,7 @@ export async function generateShotBg(shot: Shot, projectId: string): Promise<{ l
 
   // Cache lookup in RTDB
   try {
-    const db = getRtdb()
+    const db = await getRtdb()
     const key = hashVisualCache(shot.prompt, shot.seed, 'sdxl', 'sd3')
     const snap = await db.ref(`/cache/visuals/${key}`).get()
     if (snap.exists()) {
@@ -65,7 +65,7 @@ export async function generateShotBg(shot: Shot, projectId: string): Promise<{ l
         const stat = await fs.stat(outPath)
         if (!stat.size) throw new Error('Empty image from Stability')
         try {
-          const db = getRtdb(); const key = hashVisualCache(shot.prompt, shot.seed, 'sdxl', 'sd3')
+          const db = await getRtdb(); const key = hashVisualCache(shot.prompt, shot.seed, 'sdxl', 'sd3')
           await db.ref(`/cache/visuals/${key}`).set({ provider: 'sdxl', model: 'sd3', seed: shot.seed, firebaseUrl: '' })
         } catch {}
         console.log(JSON.stringify({ sceneId: 'unknown', shotId: shot.id, provider: 'sdxl', seed: shot.seed, path: outPath }))
@@ -90,7 +90,7 @@ export async function generateShotBg(shot: Shot, projectId: string): Promise<{ l
   await fs.outputFile(outPath, buf)
   const stat = await fs.stat(outPath); if (!stat.size) throw new Error('Empty image from OpenAI')
   try {
-    const db = getRtdb(); const key = hashVisualCache(shot.prompt, shot.seed, 'openai', 'gpt-image-3')
+    const db = await getRtdb(); const key = hashVisualCache(shot.prompt, shot.seed, 'openai', 'gpt-image-3')
     await db.ref(`/cache/visuals/${key}`).set({ provider: 'openai', model: 'gpt-image-3', seed: shot.seed, firebaseUrl: '' })
   } catch {}
   console.log(JSON.stringify({ sceneId: 'unknown', shotId: shot.id, provider: 'openai', seed: shot.seed, path: outPath }))

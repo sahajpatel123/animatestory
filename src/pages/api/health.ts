@@ -2,7 +2,6 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { loadEnv, validateRequiredEnv } from '@/config/env'
 import { installGlobalErrorHandlers } from '@/lib/errors'
 import { SAFE_MODE } from '@/lib/safe'
-import { FFMPEG_PATH, FFPROBE_PATH } from '@/server/ffmpegPaths'
 import { LIMITS } from '@/server/guardrails'
 
 export const config = { runtime: 'nodejs' }
@@ -20,7 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       checks.redis = { ok: false, skipped: true }
       checks.storage = { ok: false, skipped: true }
       checks.db = { enabled: false, kind: 'none', ok: true }
-      checks.ffmpeg = { ok: true, note: 'skipped in SAFE_MODE', ffmpegPath: FFMPEG_PATH, ffprobePath: FFPROBE_PATH }
+      checks.ffmpeg = { ok: true, note: 'skipped in SAFE_MODE' }
       return res.status(200).json({ ok: checks.env.ok, safeMode: true, checks })
     }
 
@@ -82,7 +81,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (projectId) {
       try {
         const { getRtdb } = await import('@/server/firebase')
-        const rtdb = getRtdb()
+        const rtdb = await getRtdb()
         const snap = await rtdb.ref(`/projects/${projectId}/plan/validation`).get()
         if (snap.exists()) checks.guardrails.lastValidation = snap.val()
       } catch {}

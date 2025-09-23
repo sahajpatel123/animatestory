@@ -1,10 +1,15 @@
 import path from 'node:path'
 import fs from 'fs-extra'
 import ffmpeg from 'fluent-ffmpeg'
-import { FFMPEG_PATH, FFPROBE_PATH } from '@/server/ffmpegPaths'
+import { resolveFfmpeg } from '@/server/ffmpegPaths'
 
-ffmpeg.setFfmpegPath(FFMPEG_PATH)
-ffmpeg.setFfprobePath(FFPROBE_PATH)
+(async () => {
+  try {
+    const { ffmpeg: ffmpegPath, ffprobe: ffprobePath } = await resolveFfmpeg()
+    ffmpeg.setFfmpegPath(ffmpegPath)
+    ffmpeg.setFfprobePath(ffprobePath)
+  } catch {}
+})()
 
 export type SceneJob = {
   sceneId: string
@@ -70,7 +75,10 @@ export async function renderScene(job: SceneJob): Promise<{ sceneId: string; mp4
 
   const thumbPath = path.join(path.dirname(job.outPath), `thumb_${job.sceneId}.png`)
   await new Promise<void>((resolve, reject) => {
-    ffmpeg(job.outPath).screenshots({ timestamps: ['1'], filename: path.basename(thumbPath), folder: path.dirname(thumbPath), size: '640x?' }).on('end', resolve).on('error', reject)
+    ffmpeg(job.outPath)
+      .on('end', () => resolve())
+      .on('error', (e) => reject(e))
+      .screenshots({ timestamps: ['1'], filename: path.basename(thumbPath), folder: path.dirname(thumbPath), size: '640x?' })
   })
 
   return { sceneId: job.sceneId, mp4Path: job.outPath, thumbPath, loudnorm: {} }

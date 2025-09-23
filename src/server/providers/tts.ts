@@ -2,8 +2,8 @@ import fs from 'fs-extra'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import crypto from 'node:crypto'
+import { resolveFfmpeg } from '@/server/ffmpegPaths'
 import { getRtdb } from '@/server/firebase'
-import { FFPROBE_PATH } from '@/server/ffmpegPaths'
 
 // Minimal types; swap to '@/types/models' if present
 export type Line = { id: string; who: string; text: string; estMs: number }
@@ -28,8 +28,9 @@ export async function ttsElevenLabs(text: string, voiceId: string, outPath: stri
   return outPath
 }
 
-export function ffprobeDuration(filePath: string): number {
-  const p = spawnSync(FFPROBE_PATH || 'ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', filePath])
+export async function ffprobeDuration(filePath: string): Promise<number> {
+  const { ffprobe } = await resolveFfmpeg()
+  const p = spawnSync(ffprobe || 'ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', filePath])
   if (p.status !== 0) return 0
   const val = parseFloat((p.stdout || Buffer.from('0')).toString().trim())
   return isNaN(val) ? 0 : val
@@ -45,14 +46,14 @@ export async function synthesizeLine(line: Line, projectId: string, voiceId = 'R
   await fs.ensureDir(outDir)
 
   if (await fs.pathExists(outPath)) {
-    const dur = Math.round(ffprobeDuration(outPath) * 1000)
+    const dur = Math.round((await ffprobeDuration(outPath)) * 1000)
     console.log(JSON.stringify({ sceneId: 'unknown', lineId: line.id, who: line.who, durationMs: dur, wavPath: outPath }))
     return { wavPath: outPath, durationMs: dur, provider: 'local-cache' }
   }
 
   // Cache in RTDB
   try {
-    const db = getRtdb()
+    const db = await getRtdb()
     const key = cacheKey(voiceId, line.text)
     const snap = await db.ref(`/cache/tts/${key}`).get()
     if (snap.exists()) {
@@ -62,7 +63,7 @@ export async function synthesizeLine(line: Line, projectId: string, voiceId = 'R
         if (res.ok) {
           const buf = Buffer.from(await res.arrayBuffer())
           await fs.writeFile(outPath, buf)
-          const dur = Math.round(ffprobeDuration(outPath) * 1000)
+          const dur = Math.round((await ffprobeDuration(outPath)) * 1000)
           console.log(JSON.stringify({ sceneId: 'unknown', lineId: line.id, who: line.who, durationMs: dur, wavPath: outPath }))
           return { wavPath: outPath, durationMs: dur, provider: 'cache-remote' }
         }
@@ -89,9 +90,9 @@ export async function synthesizeLine(line: Line, projectId: string, voiceId = 'R
   if (!resp.ok) throw new Error(`TTS failed: ${resp.status}`)
   const buf = Buffer.from(await resp.arrayBuffer())
   await fs.writeFile(outPath, buf)
-  const durationMs = Math.round(ffprobeDuration(outPath) * 1000)
+  const durationMs = Math.round((await ffprobeDuration(outPath)) * 1000)
   try {
-    const db = getRtdb(); const key = cacheKey(voiceId, line.text)
+    const db = await getRtdb(); const key = cacheKey(voiceId, line.text)
     await db.ref(`/cache/tts/${key}`).set({ provider: 'elevenlabs', voiceId, wavUrl: '' })
   } catch {}
   console.log(JSON.stringify({ sceneId: 'unknown', lineId: line.id, who: line.who, durationMs, wavPath: outPath }))
